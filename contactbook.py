@@ -1,0 +1,116 @@
+import tkinter as tk
+from tkinter import messagebox, simpledialog
+import json
+import os
+
+class ContactBook:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Contact Book")
+        self.root.geometry("600x400")
+
+        self.contacts = {}
+        self.load_contacts()
+
+        self.create_widgets()
+
+    def create_widgets(self):
+        # Title
+        title = tk.Label(self.root, text="Contact Book", font=('arial', 20, 'bold'))
+        title.pack(pady=10)
+
+        # Add Contact Button
+        add_button = tk.Button(self.root, text="Add Contact", command=self.add_contact)
+        add_button.pack(pady=5)
+
+        # Search Contact Button
+        search_button = tk.Button(self.root, text="Search Contact", command=self.search_contact)
+        search_button.pack(pady=5)
+
+        # Contact List
+        self.contact_listbox = tk.Listbox(self.root)
+        self.contact_listbox.pack(pady=10, fill=tk.BOTH, expand=True)
+        self.contact_listbox.bind('<Double-1>', self.view_contact)
+
+        self.update_contact_list()
+
+    def load_contacts(self):
+        if os.path.exists("contacts.json"):
+            with open("contacts.json", "r") as f:
+                self.contacts = json.load(f)
+
+    def save_contacts(self):
+        with open("contacts.json", "w") as f:
+            json.dump(self.contacts, f)
+
+    def update_contact_list(self):
+        self.contact_listbox.delete(0, tk.END)
+        for name, details in self.contacts.items():
+            self.contact_listbox.insert(tk.END, f"{name} - {details['phone']}")
+
+    def add_contact(self):
+        contact_details = self.get_contact_details()
+        if contact_details:
+            name, phone, email, address = contact_details
+            if name in self.contacts:
+                messagebox.showerror("Error", "Contact already exists!")
+            else:
+                self.contacts[name] = {"phone": phone, "email": email, "address": address}
+                self.save_contacts()
+                self.update_contact_list()
+
+    def get_contact_details(self, name="", phone="", email="", address=""):
+        name = simpledialog.askstring("Input", "Enter Name:", initialvalue=name)
+        if not name:
+            return None
+        phone = simpledialog.askstring("Input", "Enter Phone:", initialvalue=phone)
+        email = simpledialog.askstring("Input", "Enter Email:", initialvalue=email)
+        address = simpledialog.askstring("Input", "Enter Address:", initialvalue=address)
+        return name, phone, email, address
+
+    def view_contact(self, event):
+        selected = self.contact_listbox.curselection()
+        if selected:
+            name = self.contact_listbox.get(selected).split(" - ")[0]
+            details = self.contacts[name]
+            self.show_contact_details(name, details)
+
+    def show_contact_details(self, name, details):
+        response = messagebox.askquestion("Contact Details", f"Name: {name}\nPhone: {details['phone']}\nEmail: {details['email']}\nAddress: {details['address']}\n\nDo you want to update or delete this contact?", icon='question')
+        if response == 'yes':
+            action = messagebox.askquestion("Update or Delete", "Would you like to update this contact?", icon='question')
+            if action == 'yes':
+                self.update_contact(name)
+            else:
+                self.delete_contact(name)
+
+    def search_contact(self):
+        search_term = simpledialog.askstring("Search", "Enter name or phone number:")
+        if search_term:
+            results = {name: details for name, details in self.contacts.items() if search_term.lower() in name.lower() or search_term in details['phone']}
+            self.contact_listbox.delete(0, tk.END)
+            for name, details in results.items():
+                self.contact_listbox.insert(tk.END, f"{name} - {details['phone']}")
+
+    def update_contact(self, name):
+        contact_details = self.get_contact_details(name, self.contacts[name]["phone"], self.contacts[name]["email"], self.contacts[name]["address"])
+        if contact_details:
+            new_name, phone, email, address = contact_details
+            if new_name != name and new_name in self.contacts:
+                messagebox.showerror("Error", "Contact with this new name already exists!")
+            else:
+                del self.contacts[name]
+                self.contacts[new_name] = {"phone": phone, "email": email, "address": address}
+                self.save_contacts()
+                self.update_contact_list()
+
+    def delete_contact(self, name):
+        if messagebox.askyesno("Delete", f"Are you sure you want to delete the contact {name}?"):
+            del self.contacts[name]
+            self.save_contacts()
+            self.update_contact_list()
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    ContactBook(root)
+    root.mainloop()
